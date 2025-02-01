@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Queue Position</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Queue</h2>
+
+        {% if users %}
+        <div class="queue-info">
+            <h3>Current Queue</h3>
+            <div class="queue-list">
+                {% for user in users %}
+                    <div class="user-item">
+                        <div class="user-info">
+                            <p>Name: {{ user.name }}</p>
+                            <p>Email: {{ user.email }}</p>
+                            <p>Position: {{ user.position }}</p>
+                        </div>
+                        <div class="leave-queue">
+                            <button class="leaveQueueBtn" data-user-id="{{ user.id }}">Leave Queue</button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+            <p>No users in the queue.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        // Event listener to handle leave button clicks
+        document.querySelectorAll('.leaveQueueBtn').forEach(function(button) {
+            button.addEventListener('click', function() {
+                var userId = button.getAttribute('data-user-id');
+                
+                fetch(`/leave_queue/${userId}`, {
+                    method: 'POST',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    // Reload the page after leaving the queue
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
