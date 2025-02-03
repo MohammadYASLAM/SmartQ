@@ -1,21 +1,32 @@
 from flask_sqlalchemy import SQLAlchemy
 
-# Initialize SQLAlchemy
 db = SQLAlchemy()
 
+# Admin Model - Represents the administrator of the system
+class Admin(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    queues = db.relationship('Queue', backref='admin', lazy=True)
+
+# User Model - Represents a user who joins the queue
 class User(db.Model):
-    __tablename__ = 'user'  # This specifies the table name in the database
-
-    # Define columns for the User table
-    id = db.Column(db.Integer, primary_key=True)  # Primary key
-    name = db.Column(db.String(100), nullable=False)  # Name column, required field
-    email = db.Column(db.String(100), nullable=False, unique=True)  # Email column, unique and required
-    position = db.Column(db.Integer, nullable=False)  # for user to see current Queue
-
-    # You can add more fields here if needed, for example:
-    # joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    position = db.Column(db.Integer, nullable=False)  # Position in the queue
+    queue_id = db.Column(db.Integer, db.ForeignKey('queue.id'), nullable=False)
 
     def __repr__(self):
-        return f'<User {self.name} - Position {self.position}>'
+        return f'<User {self.name}>'
 
-# Add more models as needed, such as Queue, Admin, etc.
+# Queue Model - Represents a queue managed by an admin
+class Queue(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    number_of_people = db.Column(db.Integer, default=0)  # Number of people in the queue
+    admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    status = db.Column(db.String(50), default="active")  # active, paused, canceled
+    users = db.relationship('User', backref='queue', lazy=True)
+
+    def __repr__(self):
+        return f'<Queue {self.name}>'
