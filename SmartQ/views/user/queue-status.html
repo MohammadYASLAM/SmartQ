@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Queue Status</title>
+  <link rel="stylesheet" href="../../public/css/styles.css">
+</head>
+<body>
+  <div class="queue-status">
+    <h2>Queue Status</h2>
+    <p id="user-position">Your position: --</p>
+    <p id="estimated-wait-time">Estimated wait time: -- minutes</p>
+    <button id="leaveQueueBtn">Leave Queue</button>
+  </div>
+
+  <script type="module">
+    import { db } from "../../public/js/firebase-config.js";
+    import { doc, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+    // Get URL parameters for queueId and userId
+    const queryParams = new URLSearchParams(window.location.search);
+    const queueId = queryParams.get('queueId');
+    const userId = queryParams.get('userId');
+
+    if (!userId) {
+      // If no userId, redirect to join queue page
+      window.location.href = `/views/user/join-queue.html?queueId=${queueId}`;
+    }
+
+    let notified = false; // flag to prevent repeated notifications
+
+    // Listen for real-time updates on the queue document
+    function listenForQueueUpdates(queueId) {
+      const queueRef = doc(db, "queues", queueId);
+      onSnapshot(queueRef, (docSnap) => {
+        if (!docSnap.exists()) {
+          alert("Queue has been removed.");
+          window.location.href = "/views/user/join-queue.html";
+          return;
+        }
+        const queue = docSnap.data();
+        updateUserPosition(queue.users);
+        updateEstimatedWaitTime(queue.estimatedWaitTime);
+      });
+    }
+
+    // Update the displayed position for the current user
+    function updateUserPosition(users) {
+      // Find the user by matching the userId from URL
+      const user = users.find(u => u.userId === userId);
+      if (user) {
+        document.getElementById("user-position").innerText = `Your position: ${user.position}`;
+        // If user's position is 0, alert that it's their turn (only once)
+        if (user.position === 0 && !notified) {
+          notified = true;
+          alert("It's your turn now!");
+        }
+      }
+    }
+
+    // Update the estimated wait time display
+    function updateEstimatedWaitTime(waitTime) {
+      document.getElementById("estimated-wait-time").innerText = `Estimated wait time: ${waitTime} minutes`;
+    }
+
+    listenForQueueUpdates(queueId);
+
+    // Allow user to leave the queue
+    document.getElementById("leaveQueueBtn").addEventListener("click", async () => {
+      const queueRef = doc(db, "queues", queueId);
+      const queueSnap = await getDoc(queueRef);
+      if (!queueSnap.exists()) return;
+
+      const queueData = queueSnap.data();
+      // Remove the user from the queue users array
+      const updatedUsers = queueData.users.filter(u => u.userId !== userId);
+      await updateDoc(queueRef, {
+        users: updatedUsers
+      });
+      alert("You have left the queue.");
+      // After leaving, send them back to the join page
+      window.location.href = `/views/user/join-queue.html?queueId=${queueId}`;
+    });
+  </script>
+</body>
+</html>

@@ -9,21 +9,24 @@
 
 body {
     font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: #f4f4f4;
+    padding: 20px;
 }
 
-/* Landing page - center content */
+/* Landing Page - Centered Content */
 .landing-page {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     background-color: #f4f4f4;
-    overflow: hidden;  /* Prevents scrolling if content is overflowing */
+    overflow: hidden;
 }
 
-/* Add styling for the logo */
+/* Logo Animation */
 .logo-image {
-    width: 200px;  /* Adjust the width of the logo */
+    width: 200px;
     height: auto;
     opacity: 0;
     animation: fadeIn 2s forwards;
@@ -32,19 +35,19 @@ body {
 @keyframes fadeIn {
     0% {
         opacity: 0;
-        transform: scale(0.5); /* Start small */
+        transform: scale(0.5);
     }
     50% {
         opacity: 0.5;
-        transform: scale(1.2); /* Enlarge the logo */
+        transform: scale(1.2);
     }
     100% {
         opacity: 1;
-        transform: scale(1);  /* Final size */
+        transform: scale(1);
     }
 }
 
-/* Auth page styling */
+/* Authentication Page */
 #auth-page {
     max-width: 400px;
     margin: 50px auto;
@@ -66,6 +69,8 @@ body {
 
 #auth-page form label {
     margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
 }
 
 #auth-page form input {
@@ -73,6 +78,7 @@ body {
     margin-bottom: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
+    font-size: 16px;
 }
 
 #auth-page form button {
@@ -82,6 +88,8 @@ body {
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    font-size: 16px;
+    transition: 0.3s;
 }
 
 #auth-page form button:hover {
@@ -95,6 +103,7 @@ body {
 #auth-page a {
     color: #007bff;
     text-decoration: none;
+    font-weight: bold;
 }
 
 #auth-page a:hover {
@@ -116,3 +125,101 @@ body {
     margin-top: 20px;
     text-align: center;
 }
+
+/* 🔹 Admin Dashboard Styling */
+.container {
+    max-width: 600px;
+    background: white;
+    padding: 20px;
+    margin: 20px auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+.admin-header {
+    font-size: 24px;
+    color: #2C3E50;
+    font-weight: bold;
+}
+
+/* 🔹 Buttons Styling */
+.btn {
+    background-color: #007bff;
+    color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100%;
+    margin: 5px 0;
+    transition: 0.3s;
+}
+
+.btn:hover {
+    background-color: #0056b3;
+}
+
+.delete-btn {
+    background-color: #e74c3c;
+}
+
+.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+.logout-btn {
+    background-color: #ff4757;
+}
+
+.logout-btn:hover {
+    background-color: #e84118;
+}
+
+/* 🔹 Queue Management Cards */
+.queue-card {
+    background: white;
+    padding: 15px;
+    margin: 10px auto;
+    width: 80%;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    text-align: left;
+}
+
+.queue-card h3 {
+    color: #007bff;
+}
+
+.queue-card p {
+    font-size: 16px;
+    color: #555;
+}
+
+/* 🔹 Loading Indicator */
+.loading {
+    font-size: 18px;
+    color: #007bff;
+    font-weight: bold;
+    display: none;
+}
+
+/* 🔹 Responsive Design */
+@media (max-width: 768px) {
+    .queue-card {
+        width: 90%;
+    }
+
+    .container {
+        max-width: 90%;
+    }
+
+    .btn {
+        font-size: 14px;
+    }
+}
+
