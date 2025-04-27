@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Queue Status</title>
+  <link rel="stylesheet" href="../../public/css/styles.css" />
+</head>
+
+<body>
+  <div class="queue-status">
+    <div id="welcomeMessage">Loading your info...</div>
+    <h2>Queue Status</h2>
+
+    <div class="position-display">
+      <h2 class="position-label">Your Position</h2>
+      <div class="position-number">--</div>
+    </div>
+
+    <p id="estimated-wait-time">Estimated wait time: -- minutes</p>
+    <button id="leaveQueueBtn">Leave Queue</button>
+  </div>
+
+  <script type="module">
+    import { db } from "../../public/js/firebase-config.js";
+    import { doc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const queueId = queryParams.get('queueId');
+    const userId = queryParams.get('userId');
+
+    let isBeingServed = false;
+    let notified = false;
+
+    const positionLabel = document.querySelector('.position-label');
+    const positionNumber = document.querySelector('.position-number');
+
+    if (!userId) {
+      window.location.href = `/views/user/join-queue.html?queueId=${queueId}`;
+    }
+
+    const queueRef = doc(db, "queues", queueId);
+
+    // Listen for real-time updates to the queue
+    onSnapshot(queueRef, async (docSnap) => {
+      if (!docSnap.exists()) {
+        alert("Queue has been removed.");
+        window.location.href = "/views/user/invalid-queue.html";
+        return;
+      }
+
+      const queue = docSnap.data();
+      const waitTimePerUser = queue.waitTimePerUser || 0;
+      const users = queue.users || [];
+
+      const currentUser = users.find(u => u.userId === userId);
+
+      if (!currentUser) {
+        if (isBeingServed) {
+          window.location.href = "/views/user/farewell.html";
+        }
+        return;
+      }
+
+      document.getElementById("welcomeMessage").textContent = `Welcome ${currentUser.name}, ${currentUser.email}`;
+
+      const position = currentUser.position;
+      const estimatedWait = (position + 1) * waitTimePerUser;
+
+      document.getElementById("estimated-wait-time").textContent = `Estimated wait time: ${estimatedWait} minutes`;
+
+      // If it's the user's turn
+      if (position === 0) {
+        positionLabel.textContent = "It's your turn!";
+        positionNumber.textContent = "0";
+        positionNumber.classList.add('active');
+        isBeingServed = true;
+
+        // Notify the user once
+        if (!notified) {
+          notified = true;
+          alert("It's your turn now!");
+        }
+      } else {
+        positionLabel.textContent = "Your Position";
+        positionNumber.textContent = position;
+        positionNumber.classList.remove('active');
+        isBeingServed = false;
+      }
+    });
+
+    // Leave queue logic
+    document.getElementById("leaveQueueBtn").addEventListener("click", async () => {
+      const snap = await getDoc(queueRef);
+      if (!snap.exists()) return;
+
+      const queueData = snap.data();
+      let updatedUsers = queueData.users.filter(u => u.userId !== userId);
+      updatedUsers.sort((a, b) => a.position - b.position);
+      for (let i = 0; i < updatedUsers.length; i++) {
+        updatedUsers[i].position = i;
+      }
+
+      await updateDoc(queueRef, {
+        users: updatedUsers
+      });
+
+      alert("You have left the queue.");
+      if (isBeingServed) {
+        window.location.href = "/views/user/farewell.html";
+      } else {
+        window.location.href = `/views/user/join-queue.html?queueId=${queueId}`;
+      }
+    });
+  </script>
+</body>
+
+</html>

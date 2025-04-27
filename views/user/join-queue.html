@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join the Queue</title>
+  <link rel="stylesheet" href="../../public/css/styles.css" />
+</head>
+
+<body>
+  <div class="queue-status">
+    <h3 id="queueNameDisplay">Loading queue name...</h3>
+    <h2>Join the Queue</h2>
+    <div id="queue-info">
+      <p>Current number in queue: <span id="queue-count">Loading...</span></p>
+      <p>Estimated wait time: <span id="estimated-wait-time">Loading...</span></p>
+    </div>
+    <form id="joinForm">
+      <input type="text" id="userName" placeholder="Enter your name" required />
+      <input type="email" id="userEmail" placeholder="Enter your email" required />
+      <button type="submit">Join Queue</button>
+    </form>
+  </div>
+
+  <script type="module">
+    import { db } from "../../public/js/firebase-config.js";
+    import { doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const queueId = queryParams.get("queueId");
+    const queueRef = doc(db, "queues", queueId);
+
+    // Default wait time per user
+    let waitTimePerUser = 0;
+
+    // Function to load queue details and update UI
+    async function loadQueueDetails() {
+      if (!queueId) {
+        alert("Invalid queue!");
+        return;
+      }
+
+      // Get queue document from Firestore
+      const queueSnap = await getDoc(queueRef);
+
+      // If queue doesn't exist, redirect to invalid page
+      if (!queueSnap.exists()) {
+        window.location.href = "/views/user/invalid-queue.html";
+        return;
+      }
+      // Extract and display queue data
+      const queueData = queueSnap.data();
+      document.getElementById("queueNameDisplay").textContent = queueData.name;
+      document.getElementById("queue-count").textContent = queueData.users ? queueData.users.length : 0;
+
+      // Calculate estimated wait time
+      waitTimePerUser = queueData.waitTimePerUser || 0;
+      const userCount = queueData.users ? queueData.users.length : 0;
+      const estimated = (userCount + 1) * waitTimePerUser;
+
+      document.getElementById("estimated-wait-time").textContent = `${estimated} minutes`;
+    }
+
+    // Call function to load queue data on page load
+    loadQueueDetails();
+
+    // Handle form submission when user joins the queue
+    document.getElementById("joinForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("userName").value;
+      const email = document.getElementById("userEmail").value;
+      const userId = email;
+
+      // Get queue snapshot again to ensure latest data
+      const queueSnap = await getDoc(queueRef);
+      if (!queueSnap.exists()) {
+        window.location.href = "/views/user/invalid-queue.html";
+        return;
+      }
+      
+      // Check queue status
+      const queueData = queueSnap.data();
+      if (queueData.status !== "active") {
+        alert("Sorry, queue is paused. Please try again later.");
+        return;
+      }
+
+      // Check if user already exists in queue
+      const isAlreadyInQueue = queueData.users?.some(u => u.userId === userId);
+      if (isAlreadyInQueue) {
+        alert("You are already in the queue.");
+        window.location.href = `/views/user/queue-status.html?queueId=${queueId}&userId=${encodeURIComponent(userId)}`;
+        return;
+      }
+
+      // Assign position based on current users count
+      const position = queueData.users?.length || 0;
+      const newUser = { userId, name, email, position };
+
+      // Add user to Firestore using arrayUnion
+      await updateDoc(queueRef, {
+        users: arrayUnion(newUser)
+      });
+
+      // Redirect user to their queue status page
+      window.location.href = `/views/user/queue-status.html?queueId=${queueId}&userId=${encodeURIComponent(userId)}`;
+    });
+  </script>
+</body>
+
+</html>

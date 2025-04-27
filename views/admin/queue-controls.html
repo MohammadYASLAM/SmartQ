@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queue Management</title>
+  <link rel="stylesheet" href="../../public/css/styles.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="admin-header">
+      <h1>Queue Management</h1>
+      <a href="/views/admin/dashboard.html" class="back-btn">
+        <span>&larr;</span> Back to Dashboard
+      </a>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <h3>Active Queues</h3>
+        <div class="metric-value" id="active-queues-count">0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total Users</h3>
+        <div class="metric-value" id="total-users-count">0</div>
+      </div>
+    </div>
+
+    <div class="management-section">
+      <div class="queue-control-card">
+        <h2>Create New Queue</h2>
+        <form id="createQueueForm">
+          <div class="form-group">
+            <input type="text" id="queueName" placeholder="Enter queue name" required>
+          </div>
+          <div class="form-group">
+            <input type="number" id="waitTime" placeholder="Wait time per user (in minutes)" required min="1">
+          </div>
+          <button type="submit" class="btn-primary">Create Queue</button>
+        </form>
+      </div>
+
+      <div class="queue-list">
+        <h2>Active Queues</h2>
+        <div class="loading">Loading queues...</div>
+        <div id="queueList" class="queue-cards-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { db, auth } from "../../public/js/firebase-config.js";
+    import { collection, addDoc, deleteDoc, updateDoc, onSnapshot, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
+
+    const queueCollection = collection(db, "queues");
+    const queueList = document.getElementById("queueList");
+    const loadingIndicator = document.querySelector(".loading");
+
+     // Restrict access: only allow logged-in users (admins)
+     onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "/auth.html";
+      } else {
+        loadQueues(user.uid);
+      }
+    });
+
+    // Load queues from Firestore in real-time
+    function loadQueues(adminId) {
+      loadingIndicator.style.display = "block"; // Show loading message
+
+      const q = query(queueCollection, where("adminId", "==", adminId));
+
+      // Listen for real-time updates
+      onSnapshot(q, (snapshot) => {
+        let activeQueues = 0;
+        let totalUsers = 0;
+        
+        queueList.innerHTML = "";
+        loadingIndicator.style.display = "none";
+
+        snapshot.forEach((docSnap) => {
+          const queue = docSnap.data();
+          const isActive = queue.status === 'active';
+
+          // Count active queues and users
+          if (isActive) {
+            activeQueues++;
+            if (queue.users) totalUsers += queue.users.length;
+          }
+
+          const activeUsersCount = queue.users ? queue.users.filter(u => u.position > 0).length : 0;
+          const servedUser = queue.users?.find(u => u.position === 0);
+          
+          queueList.innerHTML += `
+            <div class="queue-card">
+              <h3>${queue.name}</h3>
+              <p>Status: <span class="queue-status ${isActive ? 'active' : 'paused'}">${queue.status}</span></p>
+              <p>Wait Time per User: ${queue.waitTimePerUser || 0} min</p>
+              <p>Users in line: ${activeUsersCount}</p>
+              ${servedUser ? `<p>Serving: ${servedUser.name} (${servedUser.email})</p>` : ''}
+              <div class="queue-actions">
+                <button class="btn btn-pause-resume ${!isActive ? 'paused' : ''}" 
+                        onclick="toggleQueueStatus('${docSnap.id}', '${queue.status}')">
+                  ${isActive ? '⏸ Pause' : '▶ Resume'}
+                </button>
+                <button class="btn btn-next" onclick="nextQueue('${docSnap.id}')">⏭ Next</button>
+                <button class="btn delete-btn" onclick="deleteQueue('${docSnap.id}')">🗑 Delete</button>
+                <button class="btn btn-qr" onclick="generateQR('${docSnap.id}')">🔳 QR Code</button>
+                <div id="qrcode-${docSnap.id}"></div>
+              </div>
+            </div>
+          `;
+        });
+
+         // Update
+        document.getElementById('active-queues-count').textContent = activeQueues;
+        document.getElementById('total-users-count').textContent = totalUsers;
+
+        // If no queues exist
+        if (snapshot.empty) {
+          queueList.innerHTML = "<p>No queues found. Create one above.</p>";
+        }
+      }, (error) => {
+        console.error("Error loading queues:", error);
+        queueList.innerHTML = `<p style="color:red;">Error loading queues. Check console.</p>`;
+      });
+    }
+
+    //  Create a new Queue
+    document.getElementById("createQueueForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const queueName = document.getElementById("queueName").value.trim();
+      const waitTime = parseInt(document.getElementById("waitTime").value);
+
+      if (!queueName || isNaN(waitTime)) return alert("Please enter queue name and wait time.");
+
+      try {
+        const user = auth.currentUser;
+        if (!user) return alert("User not authenticated!");
+
+        // Add new queue document to Firestore
+        await addDoc(queueCollection, {
+          name: queueName,
+          adminId: user.uid,
+          status: "active",
+          users: [],
+          currentPosition: 1,
+          estimatedWaitTime: 0,
+          waitTimePerUser: waitTime,
+          createdAt: new Date()
+        });
+
+        document.getElementById("queueName").value = "";
+        document.getElementById("waitTime").value = "";
+      } catch (error) {
+        console.error("Error creating queue:", error);
+        alert("Failed to create queue. Check console.");
+      }
+    });
+
+    // Queue Actions (toggle, next, delete, QR code)
+    window.toggleQueueStatus = async (queueId, currentStatus) => {
+      try {
+        const newStatus = currentStatus === "active" ? "paused" : "active";
+        await updateDoc(doc(db, "queues", queueId), { status: newStatus });
+
+        const btn = document.querySelector(`button[onclick="toggleQueueStatus('${queueId}', '${currentStatus}')"]`);
+        btn.classList.toggle('paused');
+        btn.textContent = newStatus === 'active' ? '⏸ Pause' : '▶ Resume';
+      } catch (error) {
+        console.error("Error updating queue status:", error);
+      }
+    };
+
+    //  Move to the next user in the queue
+    window.nextQueue = async (queueId) => {
+      try {
+        const queueSnap = await getDoc(doc(db, "queues", queueId));
+        if (!queueSnap.exists()) return;
+
+        let users = queueSnap.data().users?.filter(u => u.position !== 0) || [];
+        users = users.map((user, index) => ({ ...user, position: index }));
+
+        await updateDoc(doc(db, "queues", queueId), { users });
+      } catch (error) {
+        console.error("Error updating next queue:", error);
+      }
+    };
+
+    //  Delete queue
+    window.deleteQueue = async (queueId) => {
+      if (!confirm("Delete this queue permanently?")) return;
+      try {
+        await deleteDoc(doc(db, "queues", queueId));
+      } catch (error) {
+        console.error("Error deleting queue:", error);
+      }
+    };
+
+    //  Generate QR code for user to join queue
+    window.generateQR = (queueId) => {
+      const qrDiv = document.getElementById(`qrcode-${queueId}`);
+      qrDiv.innerHTML = "";
+      new QRCode(qrDiv, {
+        text: `${window.location.origin}/views/user/join-queue.html?queueId=${queueId}`,
+        width: 150,
+        height: 150
+      });
+    };
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+</body>
+</html>

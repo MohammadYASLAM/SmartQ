@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="../../public/css/styles.css">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <div class="admin-header">
+            <h1>Admin Dashboard</h1>
+            <h2 id="admin-welcome">Welcome, Loading...</h2>
+        </div>
+
+        <div class="dashboard-main">
+            <button class="square-btn" id="manageQueues">
+                <span>Queue Management</span>
+            </button>
+        </div>
+
+        <div class="dashboard-footer">
+            <button class="logout-btn" id="logout-btn">Logout</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "../../public/js/firebase-config.js";
+        import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
+        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+        // Listener to detect changes in user authentication state
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // If user is logged in, get the corresponding admin document from Firestore using their UID
+                const adminDoc = await getDoc(doc(db, "admins", user.uid));
+
+                // If the document exists, use the name from Firestore, otherwise fall back to the user's email
+                const adminName = adminDoc.exists() ? adminDoc.data().name : user.email;
+
+                // Display the admin's name in the welcome message on the page
+                document.getElementById("admin-welcome").textContent = `Welcome, ${adminName}`;
+            } else {
+                // If no user is logged in, redirect to the authentication page
+                window.location.href = "/auth.html";
+            }
+        });
+
+        // Logout button logic: signs the user out and redirects to login page
+        document.getElementById("logout-btn").addEventListener("click", () => {
+            signOut(auth).then(() => {
+                window.location.href = "/auth.html";
+            });
+        });
+
+        // Button for managing queues: navigates to the queue controls page
+        document.getElementById("manageQueues").addEventListener("click", () => {
+            window.location.href = "/views/admin/queue-controls.html";
+        });
+    </script>
+</body>
+
+</html>
