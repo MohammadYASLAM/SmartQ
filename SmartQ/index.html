@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartQ</title>
+    <link rel="stylesheet" href="public/css/styles.css">
+</head>
+<body>
+    <div class="landing-page">
+        <div class="logo">
+            <img src="public/images/smartq-logo.png" alt="SmartQ Logo" class="logo-image">
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js"></script>
+    <script src="public/js/firebase-config.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelector('.logo').classList.add('fade-in');
+            setTimeout(function() {
+                // After logo fades in, redirect to the auth page (login or register page)
+                window.location.href = "auth.html";
+            }, 5000); // Wait for the animation to finish before redirecting
+        });
+    </script>
+</body>
+</html>

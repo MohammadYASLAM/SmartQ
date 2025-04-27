@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join the Queue</title>
+  <link rel="stylesheet" href="../../public/css/styles.css">
+</head>
+<body>
+  <div class="queue-status">
+    <h2>Join the Queue</h2>
+    <div id="queue-info">
+      <p>Current number in queue: <span id="queue-count">Loading...</span></p>
+      <p>Estimated wait time: <span id="estimated-wait-time">Loading...</span></p>
+    </div>
+    <!-- Form for user to enter email and name -->
+    <form id="joinForm">
+      <input type="text" id="userName" placeholder="Enter your name" required>
+      <input type="email" id="userEmail" placeholder="Enter your email" required>
+      <button type="submit">Join Queue</button>
+    </form>
+  </div>
+
+  <script type="module">
+    // Import Firestore functions from firebase-config.js
+    import { db } from "../../public/js/firebase-config.js";
+    import { doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+    // Get queueId from URL parameters
+    const queryParams = new URLSearchParams(window.location.search);
+    const queueId = queryParams.get('queueId');
+
+    // Function to load current queue details
+    async function loadQueueDetails() {
+      if (!queueId) {
+        alert("Invalid queue!");
+        return;
+      }
+      const queueRef = doc(db, "queues", queueId);
+      const queueSnap = await getDoc(queueRef);
+      if (queueSnap.exists()) {
+        const queueData = queueSnap.data();
+        document.getElementById("queue-count").textContent = queueData.users ? queueData.users.length : 0;
+        document.getElementById("estimated-wait-time").textContent = queueData.estimatedWaitTime || 0;
+      }
+    }
+    loadQueueDetails();
+
+    // Handle the join queue form submission
+    document.getElementById("joinForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      // Get form values
+      const name = document.getElementById("userName").value;
+      const email = document.getElementById("userEmail").value;
+      // Use email as a simple unique identifier for this example
+      const userId = email; 
+      
+      // Prepare new user object with initial position (to be updated after reading current users)
+      const newUser = { userId: userId, name: name, email: email, position: 0 };
+
+      // Get the current queue document to determine the new position
+      const queueRef = doc(db, "queues", queueId);
+      const queueSnap = await getDoc(queueRef);
+      if (queueSnap.exists()) {
+        const queueData = queueSnap.data();
+        // Check if user is already in the queue
+        const isAlreadyInQueue = queueData.users && queueData.users.some(u => u.userId === userId);
+        if (isAlreadyInQueue) {
+            // Alert and redirect if the user is already in the queue
+            alert("You are already in the queue.");
+            window.location.href = `/views/user/queue-status.html?queueId=${queueId}&userId=${encodeURIComponent(userId)}`;
+            return;
+        }
+        // If not already in the queue, set position and add user
+        newUser.position = (queueData.users ? queueData.users.length : 0) + 1;
+        // Add the new user to the queue's users array
+        await updateDoc(queueRef, {
+          users: arrayUnion(newUser)
+        });
+        // Redirect to the queue status page with userId in URL so we can track this user
+        window.location.href = `/views/user/queue-status.html?queueId=${queueId}&userId=${encodeURIComponent(userId)}`;
+      }
+    });
+  </script>
+</body>
+</html>
